@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Storage Bag - Cloud</title>
+    <style>
+        body {
+            font-family: Arial;
+            background: #f2f4f7;
+            text-align: center;
+        }
+
+        input {
+            display: block;
+            margin: 10px auto;
+            padding: 10px;
+            width: 280px;
+        }
+
+        button {
+            padding: 10px;
+            margin: 5px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #45a049;
+        }
+
+        #dashboard {
+            display: none;
+            margin-top: 20px;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        li {
+            margin: 8px;
+        }
+
+        a {
+            text-decoration: none;
+            color: blue;
+        }
+    </style>
+</head>
+<body>
+
+<h2>📦 Storage Bag</h2>
+
+<div id="login">
+    <input type="text" id="githubUser" placeholder="GitHub Username">
+    <input type="text" id="repoName" placeholder="Repository Name">
+    <input type="password" id="token" placeholder="Personal Access Token">
+    <button onclick="login()">Login</button>
+</div>
+
+<div id="dashboard">
+    <h3>Upload File</h3>
+    <input type="file" id="fileInput">
+    <button onclick="uploadFile()">Upload</button>
+
+    <h3>Your Files</h3>
+    <button onclick="loadFiles()">Refresh File List</button>
+    <ul id="fileList"></ul>
+
+    <br>
+    <button onclick="logout()">Logout</button>
+</div>
+
+<script>
+
+let githubUser = "";
+let repoName = "";
+let token = "";
+
+function login() {
+    githubUser = document.getElementById("githubUser").value;
+    repoName = document.getElementById("repoName").value;
+    token = document.getElementById("token").value;
+
+    if(!githubUser || !repoName || !token){
+        alert("Please fill all fields");
+        return;
+    }
+
+    document.getElementById("login").style.display = "none";
+    document.getElementById("dashboard").style.display = "block";
+    loadFiles();
+}
+
+function logout(){
+    document.getElementById("dashboard").style.display = "none";
+    document.getElementById("login").style.display = "block";
+}
+
+function uploadFile(){
+
+    let file = document.getElementById("fileInput").files[0];
+
+    if(!file){
+        alert("Select a file first");
+        return;
+    }
+
+    let reader = new FileReader();
+
+    reader.onload = function(){
+
+        let base64Content = reader.result.split(',')[1];
+
+        fetch(`https://api.github.com/repos/${githubUser}/${repoName}/contents/${file.name}`, {
+            method: "PUT",
+            headers: {
+                "Authorization": "token " + token,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                message: "Uploaded via Storage Bag",
+                content: base64Content
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.content){
+                alert("Uploaded Successfully 🚀");
+                loadFiles();
+            } else {
+                alert("Upload failed. Check token or repo.");
+                console.log(data);
+            }
+        })
+        .catch(err => alert("Upload error"));
+    };
+
+    reader.readAsDataURL(file);
+}
+
+function loadFiles(){
+
+    fetch(`https://api.github.com/repos/${githubUser}/${repoName}/contents`, {
+        headers: {
+            "Authorization": "token " + token
+        }
+    })
+    .then(res => res.json())
+    .then(files => {
+
+        let list = document.getElementById("fileList");
+        list.innerHTML = "";
+
+        if(Array.isArray(files)){
+            files.forEach(file => {
+                let li = document.createElement("li");
+                li.innerHTML = `<a href="${file.download_url}" target="_blank">${file.name}</a>`;
+                list.appendChild(li);
+            });
+        }
+    })
+    .catch(err => console.log("Error loading files"));
+}
+
+</script>
+
+</body>
+</html>
